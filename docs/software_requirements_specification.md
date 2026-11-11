@@ -191,3 +191,22 @@ Section 6 defines the interaction boundaries between Primary Actors (Customer) a
 | **Main Success Scenario:** | 1. Customer selects target account and enters deposit amount $D > \$0.00$.<br>2. System validates that $D$ is a positive monetary value.<br>3. System computes $\text{Balance}_{\text{new}} = \text{Balance}_{\text{old}} + D$ and updates the account balance within an atomic database transaction.<br>4. System executes *Record Immutable Audit Log* (`<<include>>`) and displays a deposit confirmation receipt. |
 | **Extensions (`<<extend>>`):** | 2a. *Invalid Deposit Amount ($D \le \$0.00$):* System rejects input and returns `ERR_INVALID_DEPOSIT_AMOUNT`.<br>3a. *Database Write Failure:* System aborts transaction, rolls back state, and returns `ERR_TX_ROLLBACK`. |
 | **Postconditions:** | Account balance is atomically incremented by $D$; immutable credit transaction audit log is recorded. |
+
+---
+
+## 7. Requirements Traceability & Change Control
+
+Requirements traceability links high-level user needs to detailed system specifications and automated unit tests. Change management governs how evolving requirements are evaluated, approved, and tracked.
+
+| User Requirement | System Requirement | UML Use Case | Automated TypeScript Test (Jest) |
+| :--- | :--- | :--- | :--- |
+| **UR-1 [Security & Authentication]** | SR-1.1, SR-1.2 | UC-01: Log In | `AuthenticationLogic.spec.ts` |
+| **UR-2 [Account Creation & Types]** | SR-2.1, SR-2.2, SR-2.3 | UC-02: Create Account | `AccountCreation.spec.ts` |
+| **UR-3 [Balance & Ledger Inquiry]** | SR-3.3 | UC-04: Check Balance | `BalanceInquiry.spec.ts` |
+| **UR-4 [Monetary Deposit]** | SR-3.2 | UC-05: Deposit Funds | `DepositAtomic.spec.ts` |
+| **UR-5 [Monetary Withdrawal]** | SR-3.1, SR-2.1, SR-2.3 | UC-03: Withdraw Funds | `WithdrawalAtomic.spec.ts` |
+
+### 7.1 Formal Change Management Pipeline
+1. **Problem Analysis:** Any proposed requirement modification or defect report is logged as a GitHub Issue and reviewed by the Product Owner to verify business validity.
+2. **Change Analysis & Costing:** The System Architect and Database Lead trace affected downstream System Requirements (SR), UML Use Cases (UC), and TypeScript (Jest) unit tests using the RTM above to assess ripple effects and sprint effort.
+3. **Change Implementation:** Approved changes are implemented on an isolated `feature/*` branch, verified against automated TypeScript (Jest) test suites in the GitHub Actions CI pipeline, and merged into `develop` via peer-reviewed Pull Request.
