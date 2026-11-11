@@ -110,3 +110,16 @@ System requirements expand user requirements into explicit technical statements 
   * **Exception Handling:** If the session token has expired or access is unauthorized, the query is rejected with `ERR_UNAUTHORIZED_ACCESS` and the user is redirected to Log In.
 
 ---
+
+## 5. Non-Functional Requirements & Metrics
+
+Non-functional requirements specify whole-system properties and operational constraints. They are categorized into Product, Organizational, and External requirements and defined using quantitative, testable metrics.
+
+| NFR Category | Metric Property | Target Quantitative Requirement | Validation Method |
+| :--- | :--- | :--- | :--- |
+| **Product (Security - Transit)** | Network Encryption | All network traffic between client and server shall use TLS 1.3 encryption. | Wireshark Network Audit |
+| **Product (Security - Storage)** | Data & Password Cryptography | Account data at rest shall be encrypted using AES-256; user passwords shall be hashed via BCrypt (cost factor $12$). | Database & Security Unit Tests |
+| **Product (Speed)** | Response Time | Balance inquiries and atomic transactions shall complete in $< 1.5\text{ seconds}$ under a load of $50$ concurrent requests. | Apache JMeter Load Test |
+| **Product (Availability)** | System Uptime | Operational availability shall be $\ge 99.9\%$ during scheduled banking hours. | Server Uptime Monitor Logs |
+| **Organizational** | CI/CD & Dev Process | All feature branches shall pass automated TypeScript (Jest) unit tests and receive peer review prior to PR merge into `develop` or `main`. | GitHub Actions CI Pipeline |
+| **External (Legal)** | Audit Trail | Every monetary transfer and login lockout shall append an immutable log entry with UTC timestamp, User ID, Account ID, and amount. | Database Audit Review |
