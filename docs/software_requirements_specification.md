@@ -123,3 +123,71 @@ Non-functional requirements specify whole-system properties and operational cons
 | **Product (Availability)** | System Uptime | Operational availability shall be $\ge 99.9\%$ during scheduled banking hours. | Server Uptime Monitor Logs |
 | **Organizational** | CI/CD & Dev Process | All feature branches shall pass automated TypeScript (Jest) unit tests and receive peer review prior to PR merge into `develop` or `main`. | GitHub Actions CI Pipeline |
 | **External (Legal)** | Audit Trail | Every monetary transfer and login lockout shall append an immutable log entry with UTC timestamp, User ID, Account ID, and amount. | Database Audit Review |
+
+---
+
+## 6. Graphical Models & Tabular Use Case Specification
+
+Section 6 defines the interaction boundaries between Primary Actors (Customer) and Secondary Actors (Authentication Server and Core Banking Database). Figure 6.1 illustrates the system-level UML Use Case Diagram, followed by detailed tabular specifications for all five core use cases (UC-01 through UC-05).
+
+![Figure 6.1: UML Use Case Diagram — Secure Banking Application](./secure_banking_usecase_diagram.drawio.png)
+
+### Use Case UC-01: Log In
+| Field | Specification |
+| :--- | :--- |
+| **Use Case ID & Name:** | **UC-01: Log In** |
+| **Primary Actor:** | Customer (Left-hand initiating user) |
+| **Secondary Actor:** | Authentication Server (Right-hand reactionary system) |
+| **Description:** | Authenticates a customer using User ID, BCrypt-verified password, and MFA one-time passcode before granting session access. |
+| **Preconditions:** | Customer holds a registered account; Account status is not `LOCKED`; TLS 1.3 connection is active. |
+| **Main Success Scenario:** | 1. Customer enters User ID and Password.<br>2. System hashes password with BCrypt (cost factor $12$) and verifies credentials against Authentication Server.<br>3. System executes *Verify MFA Credentials* (`<<include>>`) by validating the one-time passcode.<br>4. System issues an encrypted session token and loads the account dashboard. |
+| **Extensions (`<<extend>>`):** | 2a. *Invalid Password or MFA ($< 3$ attempts):* System increments failure counter and prompts user to retry.<br>2b. *Three Consecutive Failed Attempts within $5$ Minutes:* System triggers *Lock Account* (`<<extend>>`), locks account for $15$ minutes, and records a security audit log. |
+| **Postconditions:** | Authenticated session token is active, or account is locked for $15$ minutes with an audit entry. |
+
+### Use Case UC-02: Create Account
+| Field | Specification |
+| :--- | :--- |
+| **Use Case ID & Name:** | **UC-02: Create Account** |
+| **Primary Actor:** | Authenticated Customer / Authorized Bank Staff (Left-hand initiating user) |
+| **Secondary Actor:** | Core Banking Database (Right-hand reactionary system) |
+| **Description:** | Establishes a new Current Account or Savings Account (via Use Case Generalization) linked to the authenticated customer profile. |
+| **Preconditions:** | User is authenticated; identity verification is complete; session token is active. |
+| **Main Success Scenario:** | 1. User selects specialized account type: *Create Current Account* or *Create Savings Account*.<br>2. For a Current Account, system configures overdraft limit $L_{\text{max}} = \$500.00$.<br>3. For a Savings Account, system configures monthly interest rate $r = 2.5\%$ ($I = B \times (r / 12)$), minimum balance floor $B_{\text{min}} = \$100.00$, and $L_{\text{max}} = \$0.00$.<br>4. System validates the opening balance and persists the new `ACTIVE` account in the Core Banking Database. |
+| **Extensions (`<<extend>>`):** | 4a. *Initial Savings Deposit Below $\$100.00$:* System triggers *Reject Below Minimum Floor* (`<<extend>>`), rejects creation with `ERR_MIN_BALANCE_FLOOR`, and prompts for a valid opening deposit. |
+| **Postconditions:** | New Current or Savings account record is persisted in the database with status = `ACTIVE`. |
+
+### Use Case UC-03: Withdraw Funds
+| Field | Specification |
+| :--- | :--- |
+| **Use Case ID & Name:** | **UC-03: Withdraw Funds** |
+| **Primary Actor:** | Authenticated Customer (Left-hand initiating user) |
+| **Secondary Actor:** | Core Banking Database / Core Ledger System (Right-hand reactionary system) |
+| **Description:** | Customer requests an atomic monetary withdrawal from a designated Current or Savings account. |
+| **Preconditions:** | User is successfully authenticated; session token is active; Account status = `ACTIVE`. |
+| **Main Success Scenario:** | 1. Customer selects target account and enters withdrawal amount $A > \$0.00$.<br>2. System executes *Verify Balance* (`<<include>>`) against Current Account overdraft limit ($L_{\text{max}} = \$500.00$) or Savings Account minimum floor ($B_{\text{min}} = \$100.00$).<br>3. System deducts amount $A$ ($\text{Balance}_{\text{new}} = \text{Balance}_{\text{old}} - A$) within an atomic transaction.<br>4. System executes *Record Immutable Audit Log* (`<<include>>`), updates the database ledger, and dispatches withdrawal confirmation. |
+| **Extensions (`<<extend>>`):** | 2a. *Insufficient Funds or Floor Breach:* System triggers *Display Overdraft / Floor Warning* (`<<extend>>`), aborts transaction, rolls back database state, and returns `ERR_INSUFFICIENT_FUNDS`.<br>1a. *Invalid Auth:* Session expires $\rightarrow$ System redirects to *Log In* (`<<include>>`). |
+| **Postconditions:** | Account balance is atomically updated; immutable debit transaction audit log is recorded. |
+
+### Use Case UC-04: Check Balance
+| Field | Specification |
+| :--- | :--- |
+| **Use Case ID & Name:** | **UC-04: Check Balance** |
+| **Primary Actor:** | Authenticated Customer (Left-hand initiating user) |
+| **Secondary Actor:** | Core Banking Database (Right-hand reactionary system) |
+| **Description:** | Customer queries real-time balance, available withdrawal capacity, and recent ledger entries for a selected Current or Savings account. |
+| **Preconditions:** | User is successfully authenticated; session token is active; Account status = `ACTIVE`. |
+| **Main Success Scenario:** | 1. Customer selects an active Current or Savings account from the dashboard.<br>2. System queries the Core Banking Database for current balance $B$, applicable account constraints ($L_{\text{max}}$ or $B_{\text{min}}$), and recent transactions.<br>3. System renders the formatted balance summary within $< 1.5\text{ seconds}$. |
+| **Extensions (`<<extend>>`):** | 1a. *Session Expired:* System rejects query with `ERR_UNAUTHORIZED_ACCESS` and redirects to *Log In* (`<<include>>`). |
+| **Postconditions:** | Current balance and ledger history are displayed to the customer with no modification to account state. |
+
+### Use Case UC-05: Deposit Funds
+| Field | Specification |
+| :--- | :--- |
+| **Use Case ID & Name:** | **UC-05: Deposit Funds** |
+| **Primary Actor:** | Authenticated Customer (Left-hand initiating user) |
+| **Secondary Actor:** | Core Banking Database / Core Ledger System (Right-hand reactionary system) |
+| **Description:** | Customer executes an atomic monetary deposit into a designated active Current or Savings account. |
+| **Preconditions:** | User is successfully authenticated; session token is active; Account status = `ACTIVE`. |
+| **Main Success Scenario:** | 1. Customer selects target account and enters deposit amount $D > \$0.00$.<br>2. System validates that $D$ is a positive monetary value.<br>3. System computes $\text{Balance}_{\text{new}} = \text{Balance}_{\text{old}} + D$ and updates the account balance within an atomic database transaction.<br>4. System executes *Record Immutable Audit Log* (`<<include>>`) and displays a deposit confirmation receipt. |
+| **Extensions (`<<extend>>`):** | 2a. *Invalid Deposit Amount ($D \le \$0.00$):* System rejects input and returns `ERR_INVALID_DEPOSIT_AMOUNT`.<br>3a. *Database Write Failure:* System aborts transaction, rolls back state, and returns `ERR_TX_ROLLBACK`. |
+| **Postconditions:** | Account balance is atomically incremented by $D$; immutable credit transaction audit log is recorded. |
