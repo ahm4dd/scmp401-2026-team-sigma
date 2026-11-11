@@ -71,3 +71,42 @@ User requirements describe the functional services and operational constraints p
   * *Rationale:* Ensures reliable crediting of customer funds with an auditable ledger record.
 * **UR-5 [Monetary Withdrawal]:** Authenticated customers **shall** be able to withdraw funds from an active Current or Savings account, provided the requested amount satisfies account-specific overdraft limits or minimum balance floors.
   * *Rationale:* Prevents unapproved over-drafting while enforcing bank liquidity and account policy constraints.
+
+---
+
+## 4. Detailed System Requirements Specification
+
+System requirements expand user requirements into explicit technical statements detailing exact inputs, outputs, preconditions, postconditions, and exception handling logic.
+
+### 4.1 Authentication & Access Control
+* **SR-1.1 [Credential Hashing & MFA Verification]:** Upon user login, the system **shall** prompt for User ID, Password, and a Multi-Factor Authentication (MFA) one-time passcode. Passwords **shall** be salted and hashed using BCrypt (cost factor $12$) prior to verification against the authentication database.
+* **SR-1.2 [Brute-Force Lockout Policy]:** If three ($3$) consecutive incorrect password or MFA attempts are detected within $5$ minutes, the system **shall** lock the account for $15$ minutes, block subsequent login attempts during the lockout window, and issue a security audit log.
+
+### 4.2 Account Management Logic
+* **SR-2.1 [Current Account Overdraft]:** The system **shall** permit negative balances on Current Accounts up to a pre-configured overdraft limit $L_{\text{max}} = \$500.00$. Any withdrawal that would result in a Current Account balance below $-\$500.00$ **shall** be rejected.
+* **SR-2.2 [Savings Account Interest]:** The system **shall** calculate and credit monthly interest accrued on active Savings Accounts using $I = B \times (r / 12)$ on the last calendar day of each month, where $B$ is the minimum daily balance recorded during the month and $r = 2.5\%$.
+* **SR-2.3 [Savings Balance Floor]:** The system **shall** reject withdrawal requests on Savings Accounts if the resulting balance falls below the minimum required balance $B_{\text{min}} = \$100.00$. Savings Accounts **shall not** permit overdrafts ($L_{\text{max}} = \$0.00$).
+
+### 4.3 Transaction Processing Logic
+* **SR-3.1 [Atomic Withdrawal Processing Specification]:**
+  * **Preconditions:** Customer authenticated; Account status = `ACTIVE`; Session token valid.
+  * **Input:** Account ID, Withdrawal Amount ($A > \$0.00$, precision to two decimal places).
+  * **Processing Action:** Within an atomic database transaction, the system checks if $(\text{Balance}_{\text{old}} + L_{\text{max}}) \ge A$ for a Current Account (where $L_{\text{max}} = \$500.00$) or if $(\text{Balance}_{\text{old}} - A) \ge B_{\text{min}}$ for a Savings Account (where $B_{\text{min}} = \$100.00$). If satisfied, deduct $A$ from $\text{Balance}_{\text{old}}$ and append an immutable debit record to the database ledger.
+  * **Postconditions:** Updated $\text{Balance}_{\text{new}} = \text{Balance}_{\text{old}} - A$; immutable audit log committed; system dispatches withdrawal acknowledgment.
+  * **Exception Handling:** If balance or floor constraints are violated, the transaction is aborted, database state rolls back completely, and the system returns `ERR_INSUFFICIENT_FUNDS`.
+
+* **SR-3.2 [Atomic Deposit Processing Specification]:**
+  * **Preconditions:** Customer authenticated; Account status = `ACTIVE`; Session token valid.
+  * **Input:** Account ID, Deposit Amount ($D > \$0.00$, precision to two decimal places).
+  * **Processing Action:** Within an atomic database transaction, the system validates $D > \$0.00$, computes $\text{Balance}_{\text{new}} = \text{Balance}_{\text{old}} + D$, updates the account record in the Core Banking Database, and appends an immutable credit record to the transaction ledger.
+  * **Postconditions:** Updated $\text{Balance}_{\text{new}} = \text{Balance}_{\text{old}} + D$; immutable audit log entry committed; deposit confirmation receipt returned.
+  * **Exception Handling:** If $D \le \$0.00$ or a database write error occurs, the transaction is aborted, uncommitted state rolls back, and the system returns `ERR_INVALID_DEPOSIT_AMOUNT`.
+
+* **SR-3.3 [Real-Time Balance Inquiry Specification]:**
+  * **Preconditions:** Customer authenticated; Session token valid; Customer authorized to access Account ID.
+  * **Input:** Account ID.
+  * **Processing Action:** System executes a read-consistent query against the Core Banking Database to retrieve current balance $B$, account type (`CURRENT` or `SAVINGS`), effective available withdrawal limit, and recent ledger entries.
+  * **Postconditions:** Account balance remains unchanged (read-only query); formatted account summary is returned to the client interface within $< 1.5\text{ seconds}$.
+  * **Exception Handling:** If the session token has expired or access is unauthorized, the query is rejected with `ERR_UNAUTHORIZED_ACCESS` and the user is redirected to Log In.
+
+---
