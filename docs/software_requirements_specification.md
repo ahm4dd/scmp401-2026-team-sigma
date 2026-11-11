@@ -54,3 +54,20 @@ Different stakeholders read the SRS for distinct purposes across the Software De
 | **System Architects & Developers** | Team SIGMA Engineering Team (4th-Year Computer Engineering) | Uses System Requirements (SR-1.1 to SR-3.3) as an unambiguous technical blueprint for TypeScript (Node.js / NestJS / Express) implementation. |
 | **System Test Engineers** | Quality Assurance Lead, Automated TypeScript (Jest) Test Suite | Designs automated unit, integration, and acceptance test cases directly from verifiable specifications. |
 | **Agile Project Leads** | Product Owner (Natheer Nihad), ScrumMaster (Ahmed Adil) | Uses specifications to prioritize the Product Backlog, plan sprints, and track requirements traceability. |
+
+---
+
+## 3. User Requirements Definition
+
+User requirements describe the functional services and operational constraints provided to end-users in high-level natural language. Mandatory services use 'shall'; optional enhancements use 'should'.
+
+* **UR-1 [Security & Authentication]:** The Banking Application **shall** authenticate customers using multi-factor credentials (User ID, password, and one-time passcode) before granting access to account services, and **shall** temporarily lock accounts after repeated failed login attempts.
+  * *Rationale:* Protects customer financial assets against unauthorized access and complies with data privacy legislation.
+* **UR-2 [Account Creation & Types]:** The system **shall** enable authorized personnel or authenticated customers to establish both Current Accounts (supporting overdraft privileges) and Savings Accounts (supporting monthly interest accrual and minimum balance rules).
+  * *Rationale:* Provides product differentiation tailored to diverse customer transactional and savings needs.
+* **UR-3 [Balance & Ledger Inquiry]:** Authenticated customers **shall** be able to view real-time account balances, available overdraft or withdrawal limits, and recent transaction histories across their Current and Savings accounts.
+  * *Rationale:* Gives customers immediate visibility into their financial position before initiating transfers or withdrawals.
+* **UR-4 [Monetary Deposit]:** Authenticated customers **shall** be able to deposit positive monetary amounts into an active Current or Savings account with immediate balance updates and digital receipt confirmation.
+  * *Rationale:* Ensures reliable crediting of customer funds with an auditable ledger record.
+* **UR-5 [Monetary Withdrawal]:** Authenticated customers **shall** be able to withdraw funds from an active Current or Savings account, provided the requested amount satisfies account-specific overdraft limits or minimum balance floors.
+  * *Rationale:* Prevents unapproved over-drafting while enforcing bank liquidity and account policy constraints.
